@@ -1,7 +1,6 @@
 import { http, createConfig } from 'wagmi'
 import { base, baseSepolia } from 'wagmi/chains'
-import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
-
+import { coinbaseWallet, injected } from 'wagmi/connectors'
 // Free public RPCs – good enough for MVP
 const baseRpc = http('https://mainnet.base.org')
 const baseSepoliaRpc = http('https://sepolia.base.org')
