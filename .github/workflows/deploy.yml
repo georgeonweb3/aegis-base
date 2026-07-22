@@ -1,7 +1,7 @@
 name: Deploy Aegis to Base Sepolia
 
 on:
-  workflow_dispatch:   # Manual button in GitHub UI
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -15,7 +15,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: contracts
-        run: forge install foundry-rs/forge-std --no-commit
+        run: forge install foundry-rs/forge-std
 
       - name: Deploy to Base Sepolia
         working-directory: contracts
