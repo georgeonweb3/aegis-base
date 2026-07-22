@@ -1,7 +1,7 @@
 // Aegis contract ABI + addresses
 // After deployment, update AEGIS_ADDRESS
 
-export const AEGIS_ADDRESS = '0x0000000000000000000000000000000000000000' as const // TODO: replace after deploy
+export const AEGIS_ADDRESS = '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39' as const // TODO: replace after deploy
 
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const // Base native USDC
 
