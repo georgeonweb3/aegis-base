@@ -10,11 +10,11 @@ export function useAegis() {
     abi: AEGIS_ABI,
     functionName: 'getMyAgent',
     query: {
-      enabled: !!address && AEGIS_ADDRESS !== '0x0000000000000000000000000000000000000000',
+      enabled: !!address && AEGIS_ADDRESS !== '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39',
     },
   })
 
-  const hasAgent = !!myAgent && myAgent !== '0x0000000000000000000000000000000000000000'
+  const hasAgent = !!myAgent && myAgent !== '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39'
 
   const { data: agentData, refetch: refetchAgent } = useReadContract({
     address: AEGIS_ADDRESS,
