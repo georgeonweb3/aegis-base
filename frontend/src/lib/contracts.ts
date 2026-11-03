@@ -1,9 +1,24 @@
 // Aegis contract ABI + addresses
-// After deployment, update AEGIS_ADDRESS
 
-export const AEGIS_ADDRESS = '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39' as const // TODO: replace after deploy
+// Deployed on Base Sepolia only — this address has no code on Base mainnet.
+// A mainnet deployment still needs to happen; don't point mainnet users here.
+export const AEGIS_ADDRESS = '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39' as const
 
-export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const // Base native USDC
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
+
+// USDC differs per chain. The Sepolia token is NOT the mainnet address —
+// using the mainnet address on Sepolia calls a non-contract address.
+export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
+  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base mainnet
+  84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia
+}
+
+export function usdcAddressForChain(chainId: number | undefined): `0x${string}` {
+  return (chainId !== undefined && USDC_ADDRESSES[chainId]) || USDC_ADDRESSES[84532]
+}
+
+// Backwards-compatible default (Base mainnet). Prefer usdcAddressForChain().
+export const USDC_ADDRESS = USDC_ADDRESSES[8453]
 
 export const AEGIS_ABI = [
   // Events
@@ -83,6 +98,7 @@ export const AEGIS_ABI = [
           { name: 'lastDay', type: 'uint256' },
           { name: 'totalDeposited', type: 'uint256' },
           { name: 'totalSpent', type: 'uint256' },
+          { name: 'totalWithdrawn', type: 'uint256' },
         ],
       },
     ],

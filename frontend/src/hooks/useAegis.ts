@@ -1,9 +1,11 @@
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
-import { AEGIS_ADDRESS, AEGIS_ABI, USDC_ADDRESS, USDC_ABI } from '../lib/contracts'
+import { AEGIS_ADDRESS, AEGIS_ABI, USDC_ABI, ZERO_ADDRESS, usdcAddressForChain } from '../lib/contracts'
 
 export function useAegis() {
   const { address } = useAccount()
+  const chainId = useChainId()
+  const usdcAddress = usdcAddressForChain(chainId)
 
   const { data: myAgent, refetch: refetchMyAgent } = useReadContract({
     address: AEGIS_ADDRESS,
@@ -14,7 +16,10 @@ export function useAegis() {
     },
   })
 
-  const hasAgent = !!myAgent && myAgent !== '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39'
+  // getMyAgent() returns the zero address when the user has no agent.
+  // (This previously compared against the Aegis contract address itself,
+  // so every connected user was treated as already having an agent.)
+  const hasAgent = !!myAgent && myAgent !== ZERO_ADDRESS
 
   const { data: agentData, refetch: refetchAgent } = useReadContract({
     address: AEGIS_ADDRESS,
@@ -33,7 +38,7 @@ export function useAegis() {
   })
 
   const { data: userUsdc, refetch: refetchUserUsdc } = useReadContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
@@ -99,7 +104,7 @@ export function useAegis() {
   const approveUsdc = (amountUsd: number) => {
     const amount = parseUnits(amountUsd.toString(), 6)
     writeContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: 'approve',
       args: [AEGIS_ADDRESS, amount],
@@ -147,6 +152,8 @@ export function useAegis() {
 
   return {
     address,
+    chainId,
+    usdcAddress,
     myAgent: myAgent as `0x${string}` | undefined,
     hasAgent,
     agentData,

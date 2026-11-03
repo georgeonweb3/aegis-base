@@ -23,9 +23,21 @@ contract DeployAegis is Script {
         console2.log("Deployer:", deployer);
         console2.log("Chain ID:", block.chainid);
 
+        // USDC differs per chain — the old hardcoded mainnet token does not
+        // exist on Sepolia, which made Sepolia deployments unusable.
+        address usdc;
+        if (block.chainid == 8453) {
+            usdc = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // Base mainnet USDC
+        } else if (block.chainid == 84532) {
+            usdc = 0x036CbD53842c5426634e7929541eC2318f3dCF7e; // Base Sepolia USDC
+        } else {
+            revert("DeployAegis: unsupported chain -- set the USDC address for this chain first");
+        }
+        console2.log("USDC:", usdc);
+
         vm.startBroadcast(deployerPrivateKey);
 
-        Aegis aegis = new Aegis();
+        Aegis aegis = new Aegis(usdc);
 
         vm.stopBroadcast();
 

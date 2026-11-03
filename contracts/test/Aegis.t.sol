@@ -54,19 +54,107 @@ contract AegisTest is Test {
     uint256 constant DAILY_LIMIT = 100e6; // $100
 
     function setUp() public {
-        // Deploy mock USDC first
+        // Deploy mock USDC first, then point Aegis at it. The token address
+        // is a constructor argument (previously a hardcoded mainnet
+        // constant), which is what makes the money paths testable at all.
         usdc = new MockUSDC();
 
-        // We need to temporarily override the constant USDC address.
-        // For real tests on a fork we would use the real USDC.
-        // Here we deploy Aegis and use vm.etch / storage tricks, 
-        // but for simplicity in this minimal test we focus on logic
-        // that doesn't depend on the hardcoded USDC address.
-
-        aegis = new Aegis();
+        aegis = new Aegis(address(usdc));
 
         // Fund owner with mock USDC
         usdc.mint(owner, 1000e6);
+    }
+
+    // ============ Money paths (deposit / withdraw / agentSpend) ============
+
+    function _createAndDeposit(uint256 amount) internal {
+        vm.prank(owner);
+        aegis.createAgent(agent, DAILY_LIMIT);
+
+        vm.startPrank(owner);
+        usdc.approve(address(aegis), amount);
+        aegis.deposit(agent, amount);
+        vm.stopPrank();
+    }
+
+    function test_DepositAndBalance() public {
+        _createAndDeposit(200e6);
+
+        assertEq(aegis.balanceOf(agent), 200e6);
+        assertEq(aegis.getAgent(agent).totalDeposited, 200e6);
+        assertEq(usdc.balanceOf(address(aegis)), 200e6);
+    }
+
+    function test_WithdrawReducesBalance() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(owner);
+        aegis.withdraw(agent, 80e6);
+
+        assertEq(aegis.balanceOf(agent), 120e6);
+        assertEq(aegis.getAgent(agent).totalWithdrawn, 80e6);
+        assertEq(usdc.balanceOf(owner), 1000e6 - 200e6 + 80e6);
+    }
+
+    /// Regression test for the drain bug: withdraw() used to leave
+    /// balanceOf() unchanged, so the full balance could be withdrawn
+    /// over and over until the contract was empty.
+    function test_CannotWithdrawSameBalanceTwice() public {
+        _createAndDeposit(200e6);
+
+        vm.startPrank(owner);
+        aegis.withdraw(agent, 200e6);
+        assertEq(aegis.balanceOf(agent), 0);
+
+        vm.expectRevert(Aegis.InsufficientBalance.selector);
+        aegis.withdraw(agent, 1);
+        vm.stopPrank();
+    }
+
+    function test_CannotWithdrawMoreThanBalance() public {
+        _createAndDeposit(50e6);
+
+        vm.prank(owner);
+        vm.expectRevert(Aegis.InsufficientBalance.selector);
+        aegis.withdraw(agent, 50e6 + 1);
+    }
+
+    function test_AgentSpendRespectsBalanceAndLimitAfterWithdraw() public {
+        _createAndDeposit(200e6);
+
+        // Withdraw most of it: only $50 remains spendable, under the $100 limit.
+        vm.prank(owner);
+        aegis.withdraw(agent, 150e6);
+        assertEq(aegis.balanceOf(agent), 50e6);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.InsufficientBalance.selector);
+        aegis.agentSpend(recipient, 60e6, 0, 0);
+
+        vm.prank(agent);
+        aegis.agentSpend(recipient, 50e6, 0, 0);
+
+        assertEq(aegis.balanceOf(agent), 0);
+        assertEq(usdc.balanceOf(recipient), 50e6);
+    }
+
+    function test_AgentSpendEnforcesDailyLimit() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.DailyLimitExceeded.selector);
+        aegis.agentSpend(recipient, DAILY_LIMIT + 1, 0, 0);
+    }
+
+    function test_FrozenAgentCannotSpend() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(owner);
+        aegis.freeze(agent);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.AgentIsFrozen.selector);
+        aegis.agentSpend(recipient, 10e6, 0, 0);
     }
 
     function test_CreateAgent() public {

@@ -11,11 +11,12 @@ Built for the Base Ecosystem Fund focus on **Agentic Commerce**.
 ## Current Status
 
 - [x] Smart contract (`contracts/Aegis.sol`) — complete
-- [x] Foundry deploy script + basic tests
+- [x] Foundry deploy script + tests (incl. deposit / withdraw / agentSpend money paths)
 - [x] Frontend scaffold + full interactive UI (Create Agent, Deposit, Withdraw, Freeze, Create Intent, Change Limit)
 - [x] Android-first PWA configuration
-- [ ] Deploy contract to Base Sepolia → mainnet
-- [ ] Paste real address into frontend
+- [x] Critical fixes: `withdraw()` accounting (repeat-withdraw drain), per-chain USDC (constructor arg instead of hardcoded mainnet address), `hasAgent` zero-address check in the frontend
+- [ ] **Redeploy** contract to Base Sepolia → mainnet (the current Sepolia deployment at `0x414B…6A39` predates the fixes above and was built against the mainnet USDC address, so it cannot move Sepolia USDC)
+- [ ] Paste the new address into frontend
 - [ ] Activity feed (listen to Spent events)
 - [ ] Final Android testing + polish
 - [ ] Public demo + grant application
