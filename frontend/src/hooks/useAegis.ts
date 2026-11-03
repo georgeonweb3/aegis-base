@@ -1,14 +1,15 @@
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
-import { AEGIS_ADDRESS, AEGIS_ABI, USDC_ABI, ZERO_ADDRESS, usdcAddressForChain } from '../lib/contracts'
+import { AEGIS_ABI, USDC_ABI, ZERO_ADDRESS, aegisAddressForChain, usdcAddressForChain } from '../lib/contracts'
 
 export function useAegis() {
   const { address } = useAccount()
   const chainId = useChainId()
   const usdcAddress = usdcAddressForChain(chainId)
+  const aegisAddress = aegisAddressForChain(chainId)
 
   const { data: myAgent, refetch: refetchMyAgent } = useReadContract({
-    address: AEGIS_ADDRESS,
+    address: aegisAddress,
     abi: AEGIS_ABI,
     functionName: 'getMyAgent',
     query: {
@@ -22,7 +23,7 @@ export function useAegis() {
   const hasAgent = !!myAgent && myAgent !== ZERO_ADDRESS
 
   const { data: agentData, refetch: refetchAgent } = useReadContract({
-    address: AEGIS_ADDRESS,
+    address: aegisAddress,
     abi: AEGIS_ABI,
     functionName: 'getAgent',
     args: hasAgent ? [myAgent as `0x${string}`] : undefined,
@@ -30,7 +31,7 @@ export function useAegis() {
   })
 
   const { data: agentBalance, refetch: refetchBalance } = useReadContract({
-    address: AEGIS_ADDRESS,
+    address: aegisAddress,
     abi: AEGIS_ABI,
     functionName: 'balanceOf',
     args: hasAgent ? [myAgent as `0x${string}`] : undefined,
@@ -63,7 +64,7 @@ export function useAegis() {
   const createAgent = (agentWallet: `0x${string}`, dailyLimitUsd: number) => {
     const limit = parseUnits(dailyLimitUsd.toString(), 6)
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'createAgent',
       args: [agentWallet, limit],
@@ -74,7 +75,7 @@ export function useAegis() {
     if (!myAgent) return
     const limit = parseUnits(dailyLimitUsd.toString(), 6)
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'setDailyLimit',
       args: [myAgent as `0x${string}`, limit],
@@ -84,7 +85,7 @@ export function useAegis() {
   const freeze = () => {
     if (!myAgent) return
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'freeze',
       args: [myAgent as `0x${string}`],
@@ -94,7 +95,7 @@ export function useAegis() {
   const unfreeze = () => {
     if (!myAgent) return
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'unfreeze',
       args: [myAgent as `0x${string}`],
@@ -107,7 +108,7 @@ export function useAegis() {
       address: usdcAddress,
       abi: USDC_ABI,
       functionName: 'approve',
-      args: [AEGIS_ADDRESS, amount],
+      args: [aegisAddress, amount],
     })
   }
 
@@ -115,7 +116,7 @@ export function useAegis() {
     if (!myAgent) return
     const amount = parseUnits(amountUsd.toString(), 6)
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'deposit',
       args: [myAgent as `0x${string}`, amount],
@@ -126,7 +127,7 @@ export function useAegis() {
     if (!myAgent) return
     const amount = parseUnits(amountUsd.toString(), 6)
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'withdraw',
       args: [myAgent as `0x${string}`, amount],
@@ -143,10 +144,19 @@ export function useAegis() {
     const maxAmount = parseUnits(maxAmountUsd.toString(), 6)
     const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600)
     writeContract({
-      address: AEGIS_ADDRESS,
+      address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'createIntent',
       args: [myAgent as `0x${string}`, description, category, maxAmount, deadline],
+    })
+  }
+
+  const cancelIntent = (intentId: bigint) => {
+    writeContract({
+      address: aegisAddress,
+      abi: AEGIS_ABI,
+      functionName: 'cancelIntent',
+      args: [intentId],
     })
   }
 
@@ -154,6 +164,7 @@ export function useAegis() {
     address,
     chainId,
     usdcAddress,
+    aegisAddress,
     myAgent: myAgent as `0x${string}` | undefined,
     hasAgent,
     agentData,
@@ -172,6 +183,7 @@ export function useAegis() {
     deposit,
     withdraw,
     createIntent,
+    cancelIntent,
     formatUsdc: (v: bigint | undefined) =>
       v !== undefined ? Number(formatUnits(v, 6)).toFixed(2) : '—',
   }

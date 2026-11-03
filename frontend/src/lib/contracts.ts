@@ -1,10 +1,27 @@
 // Aegis contract ABI + addresses
 
-// Deployed on Base Sepolia only (2026-11-03, post-fix redeploy; USDC()
-// verified on-chain as the Base Sepolia USDC below) — this address has no
-// code on Base mainnet. A mainnet deployment still needs to happen;
-// don't point mainnet users here.
-export const AEGIS_ADDRESS = '0x46E971401a17b91bc2da0bdb120C63a5aE15E826' as const
+// Deployed on Base Sepolia (2026-11-03, post-fix redeploy; USDC() verified
+// on-chain as the Base Sepolia USDC below). Mainnet entry is added to
+// AEGIS_ADDRESSES when the mainnet deployment happens.
+export const AEGIS_ADDRESSES: Partial<Record<number, `0x${string}`>> = {
+  84532: '0x46E971401a17b91bc2da0bdb120C63a5aE15E826', // Base Sepolia
+  // 8453: '0x…' // Base mainnet — not deployed yet
+}
+
+// Block each deployment went live at — the activity/intents feed scans
+// event logs from here instead of from genesis.
+export const AEGIS_DEPLOY_BLOCKS: Partial<Record<number, bigint>> = {
+  84532: 53973259n,
+}
+
+export function aegisAddressForChain(chainId: number | undefined): `0x${string}` {
+  return (chainId !== undefined && AEGIS_ADDRESSES[chainId]) || AEGIS_ADDRESSES[84532]!
+}
+
+// Backwards-compatible default (the Sepolia deployment). Prefer
+// aegisAddressForChain() so a mainnet wallet never reads a Sepolia-only
+// address on the wrong chain.
+export const AEGIS_ADDRESS = AEGIS_ADDRESSES[84532]!
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
 
@@ -72,6 +89,28 @@ export const AEGIS_ABI = [
       { name: 'creator', type: 'address', indexed: true },
       { name: 'maxAmount', type: 'uint256', indexed: false },
       { name: 'deadline', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'Withdrawn',
+    inputs: [
+      { name: 'agentWallet', type: 'address', indexed: true },
+      { name: 'to', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'IntentFulfilled',
+    inputs: [{ name: 'intentId', type: 'uint256', indexed: true }],
+  },
+  {
+    type: 'event',
+    name: 'LimitsUpdated',
+    inputs: [
+      { name: 'agentWallet', type: 'address', indexed: true },
+      { name: 'dailyLimit', type: 'uint256', indexed: false },
     ],
   },
 
