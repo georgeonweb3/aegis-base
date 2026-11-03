@@ -1,8 +1,10 @@
 // Aegis contract ABI + addresses
 
-// Deployed on Base Sepolia only — this address has no code on Base mainnet.
-// A mainnet deployment still needs to happen; don't point mainnet users here.
-export const AEGIS_ADDRESS = '0x414BaEC6C0FB6c39EdeE2319AeE944caDF4e6A39' as const
+// Deployed on Base Sepolia only (2026-11-03, post-fix redeploy; USDC()
+// verified on-chain as the Base Sepolia USDC below) — this address has no
+// code on Base mainnet. A mainnet deployment still needs to happen;
+// don't point mainnet users here.
+export const AEGIS_ADDRESS = '0x46E971401a17b91bc2da0bdb120C63a5aE15E826' as const
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
 
