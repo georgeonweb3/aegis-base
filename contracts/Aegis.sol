@@ -19,9 +19,28 @@ interface IERC20 {
 
 contract Aegis {
     // ============ Constants ============
-    // Native USDC on Base mainnet
-    address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    // Well-known USDC deployments. The token a deployment actually uses is
+    // chosen in the constructor, because the hardcoded mainnet address does
+    // not exist on Base Sepolia (and vice versa) — a constant made every
+    // Sepolia deposit/spend call into a non-contract address.
+    address public constant USDC_BASE_MAINNET = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public constant USDC_BASE_SEPOLIA = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
     uint256 public constant DAY = 1 days;
+
+    // The USDC token for this deployment (set once in the constructor).
+    address public immutable USDC;
+
+    error InvalidUsdcAddress();
+
+    /**
+     * @param usdc The USDC token for the chain this is deployed to
+     *             (USDC_BASE_MAINNET on Base, USDC_BASE_SEPOLIA on Base Sepolia,
+     *             or a mock token in tests).
+     */
+    constructor(address usdc) {
+        if (usdc == address(0)) revert InvalidUsdcAddress();
+        USDC = usdc;
+    }
 
     // ============ Types ============
     struct Agent {
@@ -33,6 +52,7 @@ contract Aegis {
         uint256 lastDay;        // floor(block.timestamp / DAY)
         uint256 totalDeposited; // lifetime deposits (for simple accounting)
         uint256 totalSpent;     // lifetime spent
+        uint256 totalWithdrawn; // lifetime withdrawn by the owner
     }
 
     struct Intent {
@@ -108,7 +128,8 @@ contract Aegis {
             spentToday: 0,
             lastDay: block.timestamp / DAY,
             totalDeposited: 0,
-            totalSpent: 0
+            totalSpent: 0,
+            totalWithdrawn: 0
         });
 
         ownerToAgent[msg.sender] = agentWallet;
@@ -165,6 +186,11 @@ contract Aegis {
         if (amount == 0) revert InvalidAmount();
         uint256 bal = balanceOf(agentWallet);
         if (amount > bal) revert InsufficientBalance();
+
+        // Effects before the transfer: without this, balanceOf() never
+        // dropped after a withdrawal, so the same balance could be
+        // withdrawn repeatedly until the contract was drained.
+        agents[agentWallet].totalWithdrawn += amount;
 
         bool success = IERC20(USDC).transfer(msg.sender, amount);
         if (!success) revert TransferFailed();
@@ -274,17 +300,18 @@ contract Aegis {
 
     /**
      * @notice Available USDC balance for a given agent.
-     *         (total deposited - total spent, adjusted for any direct transfers)
+     *         (total deposited - total spent - total withdrawn)
      */
     function balanceOf(address agentWallet) public view returns (uint256) {
         Agent storage a = agents[agentWallet];
         if (a.owner == address(0)) return 0;
 
-        // Simple accounting: we track deposits and spends.
+        // Simple accounting: we track deposits, spends and withdrawals.
         // For maximum safety we could also check actual contract balance,
         // but this is sufficient and gas-cheap for MVP.
-        if (a.totalDeposited < a.totalSpent) return 0;
-        return a.totalDeposited - a.totalSpent;
+        uint256 out = a.totalSpent + a.totalWithdrawn;
+        if (a.totalDeposited < out) return 0;
+        return a.totalDeposited - out;
     }
 
     function getAgent(address agentWallet) external view returns (Agent memory) {
