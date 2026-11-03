@@ -17,7 +17,8 @@ Built for the Base Ecosystem Fund focus on **Agentic Commerce**.
 - [x] Critical fixes: `withdraw()` accounting (repeat-withdraw drain), per-chain USDC (constructor arg instead of hardcoded mainnet address), `hasAgent` zero-address check in the frontend
 - [x] **Redeploy** contract to Base Sepolia (2026-11-03): `0x46E971401a17b91bc2da0bdb120C63a5aE15E826` — deploy tx `0xcdb8c29294df45b8fb84c29f8e88ba5e1652c0aa6674d2ebf153bcd65a27cca5`, `USDC()` verified on-chain as Base Sepolia USDC. (The old deployment at `0x414B…6A39` predates the fixes and was built against the mainnet USDC address, so it cannot move Sepolia USDC.) Mainnet deployment still pending.
 - [x] Paste the new address into frontend
-- [ ] Activity feed (listen to Spent events)
+- [x] Activity feed + intents list (rebuilt from on-chain event logs in `useAegisFeed` — the contract has no enumeration, so the frontend scans from the deployment block and reads intent state with `getIntent`)
+- [x] PWA icons (192/512/maskable + apple-touch-icon, generated from `favicon.svg`)
 - [ ] Final Android testing + polish
 - [ ] Public demo + grant application
 

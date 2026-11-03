@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useAegis } from '../hooks/useAegis'
+import { useAegisFeed } from '../hooks/useAegisFeed'
 import { CATEGORIES } from '../lib/contracts'
 
 type Modal = 'none' | 'create' | 'deposit' | 'withdraw' | 'intent' | 'limit'
@@ -41,9 +42,15 @@ export function Home() {
     deposit,
     withdraw,
     createIntent,
+    cancelIntent,
     setDailyLimit,
     formatUsdc,
   } = useAegis()
+
+  const { activity, intents, isLoadingFeed, refetchFeed } = useAegisFeed(
+    hasAgent ? myAgent : undefined,
+    hasAgent
+  )
 
   const [activeTab, setActiveTab] = useState<'overview' | 'intents' | 'activity'>('overview')
   const [modal, setModal] = useState<Modal>('none')
@@ -62,6 +69,7 @@ export function Home() {
   useEffect(() => {
     if (isSuccess) {
       refresh()
+      refetchFeed()
       setStatusMsg('Transaction confirmed')
       setTimeout(() => {
         setModal('none')
@@ -270,6 +278,10 @@ export function Home() {
                   label="Total spent"
                   value={agentData ? `$${formatUsdc(agentData.totalSpent)}` : '—'}
                 />
+                <InfoRow
+                  label="Total withdrawn"
+                  value={agentData ? `$${formatUsdc(agentData.totalWithdrawn)}` : '—'}
+                />
                 <button
                   onClick={() => setModal('limit')}
                   className="w-full mt-4 py-3 rounded-xl border border-aegis-border text-sm text-aegis-muted"
@@ -280,13 +292,61 @@ export function Home() {
             )}
 
             {activeTab === 'intents' && (
-              <div className="text-center py-12 text-aegis-muted text-sm">
-                <Plus className="w-8 h-8 mx-auto mb-3 opacity-40" />
-                <p>No active intents yet</p>
-                <p className="text-xs mt-1">Create one to give your agent clear instructions</p>
+              <div>
+                {isLoadingFeed && intents.length === 0 ? (
+                  <div className="text-center py-12 text-aegis-muted text-sm">
+                    <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin opacity-60" />
+                    <p>Loading intents…</p>
+                  </div>
+                ) : intents.length === 0 ? (
+                  <div className="text-center py-12 text-aegis-muted text-sm">
+                    <Plus className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                    <p>No intents yet</p>
+                    <p className="text-xs mt-1">Create one to give your agent clear instructions</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {intents.map((intent) => (
+                      <div
+                        key={intent.id.toString()}
+                        className="bg-aegis-panel border border-aegis-border rounded-xl p-3.5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm leading-snug">{intent.description || 'Intent'}</p>
+                          <span
+                            className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border capitalize ${
+                              intent.status === 'active'
+                                ? 'text-aegis-accent border-aegis-accent/40'
+                                : 'text-aegis-muted border-aegis-border'
+                            }`}
+                          >
+                            {intent.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-aegis-muted mt-1.5">
+                          Up to ${formatUsdc(intent.maxAmount)} · {intent.categoryLabel} ·
+                          expires{' '}
+                          {new Date(Number(intent.deadline) * 1000).toLocaleDateString(
+                            undefined,
+                            { month: 'short', day: 'numeric' }
+                          )}
+                        </p>
+                        {intent.status === 'active' && (
+                          <button
+                            onClick={() => cancelIntent(intent.id)}
+                            disabled={isPending}
+                            className="mt-2.5 text-xs text-aegis-danger disabled:opacity-50"
+                          >
+                            Cancel intent
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <button
                   onClick={() => setModal('intent')}
-                  className="mt-4 px-4 py-2 rounded-lg bg-aegis-panel border border-aegis-border text-xs"
+                  className="w-full mt-4 px-4 py-2.5 rounded-lg bg-aegis-panel border border-aegis-border text-xs"
                 >
                   Create Intent
                 </button>
@@ -294,10 +354,45 @@ export function Home() {
             )}
 
             {activeTab === 'activity' && (
-              <div className="text-center py-12 text-aegis-muted text-sm">
-                <Activity className="w-8 h-8 mx-auto mb-3 opacity-40" />
-                <p>No activity yet</p>
-                <p className="text-xs mt-1">Agent spends will appear here in plain English</p>
+              <div>
+                {isLoadingFeed && activity.length === 0 ? (
+                  <div className="text-center py-12 text-aegis-muted text-sm">
+                    <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin opacity-60" />
+                    <p>Loading activity…</p>
+                  </div>
+                ) : activity.length === 0 ? (
+                  <div className="text-center py-12 text-aegis-muted text-sm">
+                    <Activity className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                    <p>No activity yet</p>
+                    <p className="text-xs mt-1">Agent spends will appear here in plain English</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {activity.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start justify-between gap-3 py-3 border-b border-aegis-border last:border-0"
+                      >
+                        <div>
+                          <p className="text-sm leading-snug">{item.text}</p>
+                          {item.timestamp && (
+                            <p className="text-[11px] text-aegis-muted mt-0.5">
+                              {new Date(item.timestamp * 1000).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-[11px] text-aegis-muted font-mono">
+                          {item.txHash.slice(0, 6)}…{item.txHash.slice(-4)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
