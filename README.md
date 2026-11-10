@@ -1,5 +1,7 @@
 # Aegis
 
+> **Live demo:** https://georgeonweb3.github.io/aegis-base/ · **Contract (Base Sepolia):** `0x46E971401a17b91bc2da0bdb120C63a5aE15E826` · Foundry tests cover the deposit / withdraw / agentSpend money paths.
+
 **The protective control layer for AI agents on Base.**
 
 Users deposit USDC → set hard daily spend limits → create structured onchain intents → freeze the agent with one tap.
