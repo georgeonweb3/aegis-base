@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {Aegis} from "../Aegis.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { Aegis } from "../Aegis.sol";
 
 /**
  * Minimal unit tests for Aegis.
@@ -47,11 +47,16 @@ contract AegisTest is Test {
     Aegis public aegis;
     MockUSDC public usdc;
 
+    // Redeclared so expectEmit can reference it (events are not
+    // visible as members of the contract type from outside).
+    event PerTxLimitUpdated(address indexed agentWallet, uint256 perTxLimit);
+
     address owner = makeAddr("owner");
     address agent = makeAddr("agent");
     address recipient = makeAddr("recipient");
 
     uint256 constant DAILY_LIMIT = 100e6; // $100
+    uint256 constant PER_TX_LIMIT = 25e6; // $25 — the CampusCap demo cap ($48 blocked, $5 allowed)
 
     function setUp() public {
         // Deploy mock USDC first, then point Aegis at it. The token address
@@ -69,7 +74,7 @@ contract AegisTest is Test {
 
     function _createAndDeposit(uint256 amount) internal {
         vm.prank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         vm.startPrank(owner);
         usdc.approve(address(aegis), amount);
@@ -127,6 +132,11 @@ contract AegisTest is Test {
         aegis.withdraw(agent, 150e6);
         assertEq(aegis.balanceOf(agent), 50e6);
 
+        // The $60 spend is over the $25 per-transaction cap, so lift the
+        // cap first: this test is about the balance check, not the cap.
+        vm.prank(owner);
+        aegis.setPerTxLimit(agent, DAILY_LIMIT);
+
         vm.prank(agent);
         vm.expectRevert(Aegis.InsufficientBalance.selector);
         aegis.agentSpend(recipient, 60e6, 0, 0);
@@ -138,12 +148,24 @@ contract AegisTest is Test {
         assertEq(usdc.balanceOf(recipient), 50e6);
     }
 
+    /// Daily-limit enforcement now needs several at-cap transactions to
+    /// reach: a single transaction over the daily limit is over the
+    /// per-transaction cap first (see test_PerTxLimitCheckedBeforeDailyLimit).
+    /// Four $25 spends fill the $100 day; a $1 spend then reverts on the
+    /// daily limit even though it is under the per-transaction cap.
     function test_AgentSpendEnforcesDailyLimit() public {
         _createAndDeposit(200e6);
 
-        vm.prank(agent);
+        vm.startPrank(agent);
+        aegis.agentSpend(recipient, PER_TX_LIMIT, 0, 0);
+        aegis.agentSpend(recipient, PER_TX_LIMIT, 0, 0);
+        aegis.agentSpend(recipient, PER_TX_LIMIT, 0, 0);
+        aegis.agentSpend(recipient, PER_TX_LIMIT, 0, 0);
+        assertEq(aegis.getAgent(agent).spentToday, DAILY_LIMIT);
+
         vm.expectRevert(Aegis.DailyLimitExceeded.selector);
-        aegis.agentSpend(recipient, DAILY_LIMIT + 1, 0, 0);
+        aegis.agentSpend(recipient, 1, 0, 0);
+        vm.stopPrank();
     }
 
     function test_FrozenAgentCannotSpend() public {
@@ -159,7 +181,7 @@ contract AegisTest is Test {
 
     function test_CreateAgent() public {
         vm.prank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         (address o, address a, bool frozen, uint256 limit,,,,) = (
             aegis.getAgent(agent).owner,
@@ -176,22 +198,23 @@ contract AegisTest is Test {
         assertEq(a, agent);
         assertEq(frozen, false);
         assertEq(limit, DAILY_LIMIT);
+        assertEq(aegis.getAgent(agent).perTxLimit, PER_TX_LIMIT);
         assertEq(aegis.ownerToAgent(owner), agent);
     }
 
     function test_CannotCreateTwoAgents() public {
         vm.startPrank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         address agent2 = makeAddr("agent2");
         vm.expectRevert(Aegis.AgentAlreadyExists.selector);
-        aegis.createAgent(agent2, DAILY_LIMIT);
+        aegis.createAgent(agent2, DAILY_LIMIT, PER_TX_LIMIT);
         vm.stopPrank();
     }
 
     function test_FreezeAndUnfreeze() public {
         vm.prank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         vm.prank(owner);
         aegis.freeze(agent);
@@ -204,7 +227,7 @@ contract AegisTest is Test {
 
     function test_OnlyOwnerCanFreeze() public {
         vm.prank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         vm.prank(makeAddr("stranger"));
         vm.expectRevert(Aegis.NotOwner.selector);
@@ -213,7 +236,7 @@ contract AegisTest is Test {
 
     function test_CreateIntent() public {
         vm.prank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         uint256 deadline = block.timestamp + 1 days;
 
@@ -236,7 +259,7 @@ contract AegisTest is Test {
 
     function test_CancelIntent() public {
         vm.prank(owner);
-        aegis.createAgent(agent, DAILY_LIMIT);
+        aegis.createAgent(agent, DAILY_LIMIT, PER_TX_LIMIT);
 
         vm.prank(owner);
         uint256 intentId = aegis.createIntent(agent, "Test", 0, 50e6, block.timestamp + 1 days);
@@ -245,5 +268,143 @@ contract AegisTest is Test {
         aegis.cancelIntent(intentId);
 
         assertFalse(aegis.getIntent(intentId).active);
+    }
+
+    // ============ Per-transaction cap (perTxLimit) ============
+
+    /// The core case from the CampusCap demo: a $48 spend is over the
+    /// $25 per-transaction cap, so it reverts even though the $100 daily
+    /// limit still has room. Under the old build this exact spend went
+    /// through — a single 50e6 transaction passes in
+    /// test_AgentSpendRespectsBalanceAndLimitAfterWithdraw above, which
+    /// is the hole the cap closes.
+    function test_PerTxLimitRevertsWhenDailyHasRoom() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.PerTxLimitExceeded.selector);
+        aegis.agentSpend(recipient, 48e6, 0, 0);
+
+        // Nothing moved: the revert left the balance untouched.
+        assertEq(aegis.balanceOf(agent), 200e6);
+        assertEq(usdc.balanceOf(recipient), 0);
+    }
+
+    /// A spend exactly at the cap passes (the check is amount > cap).
+    function test_PerTxLimitAllowsAtCap() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        aegis.agentSpend(recipient, PER_TX_LIMIT, 0, 0);
+
+        assertEq(usdc.balanceOf(recipient), PER_TX_LIMIT);
+        assertEq(aegis.balanceOf(agent), 200e6 - PER_TX_LIMIT);
+    }
+
+    /// The $5 data top-up from the CampusCap demo passes under the cap.
+    function test_PerTxLimitAllowsUnderCap() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        aegis.agentSpend(recipient, 5e6, 0, 0);
+
+        assertEq(usdc.balanceOf(recipient), 5e6);
+    }
+
+    /// The cap binds even when the daily limit would also bind: a spend
+    /// over both reverts on the per-transaction error, because the
+    /// per-transaction check runs first in agentSpend.
+    function test_PerTxLimitCheckedBeforeDailyLimit() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.PerTxLimitExceeded.selector);
+        aegis.agentSpend(recipient, DAILY_LIMIT + 1, 0, 0);
+    }
+
+    function test_OnlyOwnerCanSetPerTxLimit() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(Aegis.NotOwner.selector);
+        aegis.setPerTxLimit(agent, 10e6);
+    }
+
+    function test_SetPerTxLimitUpdatesAndEmits() public {
+        _createAndDeposit(200e6);
+
+        vm.expectEmit(true, false, false, true, address(aegis));
+        emit PerTxLimitUpdated(agent, 60e6);
+
+        vm.prank(owner);
+        aegis.setPerTxLimit(agent, 60e6);
+
+        assertEq(aegis.getAgent(agent).perTxLimit, 60e6);
+    }
+
+    /// Zero is not an "uncapped" value: it would silently brick the
+    /// agent (every spend reverts) or, if read as no-cap, silently
+    /// remove the guard. Creation rejects it fail-closed.
+    function test_CreateAgentRejectsZeroPerTxLimit() public {
+        vm.prank(owner);
+        vm.expectRevert(Aegis.InvalidAmount.selector);
+        aegis.createAgent(agent, DAILY_LIMIT, 0);
+    }
+
+    function test_SetPerTxLimitRejectsZero() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(owner);
+        vm.expectRevert(Aegis.InvalidAmount.selector);
+        aegis.setPerTxLimit(agent, 0);
+    }
+
+    /// The only way past the cap is the owner's setter — the agent
+    /// itself cannot change it. After the owner raises the cap, the
+    /// previously blocked $48 spend goes through.
+    function test_RaisedPerTxLimitAllowsPreviouslyBlockedSpend() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.PerTxLimitExceeded.selector);
+        aegis.agentSpend(recipient, 48e6, 0, 0);
+
+        vm.prank(owner);
+        aegis.setPerTxLimit(agent, 60e6);
+
+        vm.prank(agent);
+        aegis.agentSpend(recipient, 48e6, 0, 0);
+
+        assertEq(usdc.balanceOf(recipient), 48e6);
+    }
+
+    /// Lowering the cap takes effect immediately: a $5 spend that
+    /// passed before now reverts.
+    function test_LoweredPerTxLimitBlocksPreviouslyAllowedSpend() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(agent);
+        aegis.agentSpend(recipient, 5e6, 0, 0);
+
+        vm.prank(owner);
+        aegis.setPerTxLimit(agent, 4e6);
+
+        vm.prank(agent);
+        vm.expectRevert(Aegis.PerTxLimitExceeded.selector);
+        aegis.agentSpend(recipient, 5e6, 0, 0);
+    }
+
+    /// Setting the cap equal to the daily limit restores the old
+    /// one-transaction-may-use-the-whole-day behaviour, explicitly.
+    function test_PerTxLimitEqualToDailyLimitAllowsFullDaySpend() public {
+        _createAndDeposit(200e6);
+
+        vm.prank(owner);
+        aegis.setPerTxLimit(agent, DAILY_LIMIT);
+
+        vm.prank(agent);
+        aegis.agentSpend(recipient, DAILY_LIMIT, 0, 0);
+
+        assertEq(usdc.balanceOf(recipient), DAILY_LIMIT);
     }
 }

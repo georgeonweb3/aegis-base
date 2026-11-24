@@ -44,43 +44,58 @@ contract Aegis {
 
     // ============ Types ============
     struct Agent {
-        address owner;          // the human who controls this agent
-        address agentWallet;    // the wallet the AI is allowed to use
-        bool frozen;            // emergency freeze
-        uint256 dailyLimit;     // max USDC (6 decimals) the agent can spend per day
-        uint256 spentToday;     // amount spent in the current day
-        uint256 lastDay;        // floor(block.timestamp / DAY)
+        address owner; // the human who controls this agent
+        address agentWallet; // the wallet the AI is allowed to use
+        bool frozen; // emergency freeze
+        uint256 dailyLimit; // max USDC (6 decimals) the agent can spend per day
+        uint256 spentToday; // amount spent in the current day
+        uint256 lastDay; // floor(block.timestamp / DAY)
         uint256 totalDeposited; // lifetime deposits (for simple accounting)
-        uint256 totalSpent;     // lifetime spent
+        uint256 totalSpent; // lifetime spent
         uint256 totalWithdrawn; // lifetime withdrawn by the owner
+        // Appended last so the earlier fields keep their positions.
+        uint256 perTxLimit; // max USDC (6 decimals) the agent can spend in ONE transaction
     }
 
     struct Intent {
         address creator;
         address agent;
         string description;
-        uint8 category;         // 0=Other, 1=Shopping, 2=Travel, 3=Food, 4=Subscriptions
-        uint256 maxAmount;      // max USDC the agent may spend for this intent
-        uint256 deadline;       // unix timestamp
+        uint8 category; // 0=Other, 1=Shopping, 2=Travel, 3=Food, 4=Subscriptions
+        uint256 maxAmount; // max USDC the agent may spend for this intent
+        uint256 deadline; // unix timestamp
         bool active;
         bool fulfilled;
     }
 
     // ============ State ============
-    mapping(address => Agent) public agents;          // agentWallet => Agent config
-    mapping(address => address) public ownerToAgent;  // owner => their primary agentWallet (MVP: 1 per owner)
+    mapping(address => Agent) public agents; // agentWallet => Agent config
+    mapping(address => address) public ownerToAgent; // owner => their primary agentWallet (MVP: 1 per owner)
     mapping(uint256 => Intent) public intents;
     uint256 public nextIntentId = 1;
 
     // ============ Events ============
     event AgentCreated(address indexed owner, address indexed agentWallet, uint256 dailyLimit);
     event LimitsUpdated(address indexed agentWallet, uint256 dailyLimit);
+    event PerTxLimitUpdated(address indexed agentWallet, uint256 perTxLimit);
     event Frozen(address indexed agentWallet);
     event Unfrozen(address indexed agentWallet);
     event Deposited(address indexed agentWallet, address indexed from, uint256 amount);
     event Withdrawn(address indexed agentWallet, address indexed to, uint256 amount);
-    event Spent(address indexed agentWallet, address indexed to, uint256 amount, uint8 category, uint256 intentId);
-    event IntentCreated(uint256 indexed intentId, address indexed agent, address indexed creator, uint256 maxAmount, uint256 deadline);
+    event Spent(
+        address indexed agentWallet,
+        address indexed to,
+        uint256 amount,
+        uint8 category,
+        uint256 intentId
+    );
+    event IntentCreated(
+        uint256 indexed intentId,
+        address indexed agent,
+        address indexed creator,
+        uint256 maxAmount,
+        uint256 deadline
+    );
     event IntentFulfilled(uint256 indexed intentId);
 
     // ============ Errors ============
@@ -90,6 +105,7 @@ contract Aegis {
     error AgentDoesNotExist();
     error AgentIsFrozen();
     error DailyLimitExceeded();
+    error PerTxLimitExceeded();
     error InsufficientBalance();
     error InvalidAmount();
     error IntentNotActive();
@@ -114,9 +130,14 @@ contract Aegis {
      * @notice Create a new protected agent.
      * @param agentWallet The address the AI will use (EOA or smart account).
      * @param dailyLimit  Max USDC (6 decimals) the agent may spend per calendar day.
+     * @param perTxLimit  Max USDC (6 decimals) the agent may spend in ONE transaction.
+     *                    Must be > 0: a zero cap would silently brick the agent, and
+     *                    there is no "uncapped" value — set it equal to dailyLimit
+     *                    if one transaction may use the whole day.
      */
-    function createAgent(address agentWallet, uint256 dailyLimit) external {
+    function createAgent(address agentWallet, uint256 dailyLimit, uint256 perTxLimit) external {
         if (agentWallet == address(0)) revert InvalidAmount();
+        if (perTxLimit == 0) revert InvalidAmount();
         if (agents[agentWallet].owner != address(0)) revert AgentAlreadyExists();
         if (ownerToAgent[msg.sender] != address(0)) revert AgentAlreadyExists(); // MVP: one agent per owner
 
@@ -129,7 +150,8 @@ contract Aegis {
             lastDay: block.timestamp / DAY,
             totalDeposited: 0,
             totalSpent: 0,
-            totalWithdrawn: 0
+            totalWithdrawn: 0,
+            perTxLimit: perTxLimit
         });
 
         ownerToAgent[msg.sender] = agentWallet;
@@ -140,9 +162,27 @@ contract Aegis {
     /**
      * @notice Update the daily spend limit for an agent.
      */
-    function setDailyLimit(address agentWallet, uint256 newDailyLimit) external onlyOwner(agentWallet) {
+    function setDailyLimit(address agentWallet, uint256 newDailyLimit)
+        external
+        onlyOwner(agentWallet)
+    {
         agents[agentWallet].dailyLimit = newDailyLimit;
         emit LimitsUpdated(agentWallet, newDailyLimit);
+    }
+
+    /**
+     * @notice Update the per-transaction spend cap for an agent.
+     *         Owner-only. There is no admin override that lets a spend
+     *         through: the cap is enforced in agentSpend for every caller,
+     *         and only this setter (or createAgent) can change it.
+     */
+    function setPerTxLimit(address agentWallet, uint256 newPerTxLimit)
+        external
+        onlyOwner(agentWallet)
+    {
+        if (newPerTxLimit == 0) revert InvalidAmount();
+        agents[agentWallet].perTxLimit = newPerTxLimit;
+        emit PerTxLimitUpdated(agentWallet, newPerTxLimit);
     }
 
     /**
@@ -202,18 +242,13 @@ contract Aegis {
 
     /**
      * @notice The only way an agent can move USDC.
-     *         Checks freeze status + daily limit + optional intent constraints.
+     *         Checks freeze status + per-transaction cap + daily limit + optional intent constraints.
      * @param to          Recipient
      * @param amount      Amount of USDC (6 decimals)
      * @param category    0=Other, 1=Shopping, 2=Travel, 3=Food, 4=Subscriptions
      * @param intentId    0 if not linked to an intent, otherwise the intent ID
      */
-    function agentSpend(
-        address to,
-        uint256 amount,
-        uint8 category,
-        uint256 intentId
-    ) external {
+    function agentSpend(address to, uint256 amount, uint8 category, uint256 intentId) external {
         address agentWallet = msg.sender;
         Agent storage a = agents[agentWallet];
 
@@ -227,6 +262,10 @@ contract Aegis {
             a.spentToday = 0;
             a.lastDay = currentDay;
         }
+
+        // Per-transaction cap first: one bad transaction must never eat
+        // the whole day, even when the daily limit still has room.
+        if (amount > a.perTxLimit) revert PerTxLimitExceeded();
 
         if (a.spentToday + amount > a.dailyLimit) revert DailyLimitExceeded();
 
