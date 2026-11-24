@@ -12,8 +12,9 @@
   control for AI agents on Base. Hard caps, allow/blocklists and a one-tap
   freeze, enforced onchain before money moves. Intent categories with
   cumulative budgets, agent rotation and removal. Contract (Base Sepolia):
-  0x46E971401a17b91bc2da0bdb120C63a5aE15E826. Live demo:
-  https://georgeonweb3.github.io/aegis-base/
+  0x46E971401a17b91bc2da0bdb120C63a5aE15E826, verified on Basescan:
+  https://sepolia.basescan.org/address/0x46E971401a17b91bc2da0bdb120C63a5aE15E826.
+  Live demo: https://georgeonweb3.github.io/aegis-base/
 
 ## Other projects by George Agbe
 
