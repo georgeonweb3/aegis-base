@@ -44,6 +44,7 @@ export function Home() {
     createIntent,
     cancelIntent,
     setDailyLimit,
+    setPerTxLimit,
     formatUsdc,
   } = useAegis()
 
@@ -59,6 +60,7 @@ export function Home() {
   // Form state
   const [agentAddress, setAgentAddress] = useState('')
   const [dailyLimit, setDailyLimitInput] = useState('50')
+  const [perTxLimit, setPerTxLimitInput] = useState('25')
   const [amount, setAmount] = useState('')
   const [intentDesc, setIntentDesc] = useState('')
   const [intentCategory, setIntentCategory] = useState(1)
@@ -150,8 +152,10 @@ export function Home() {
             </div>
 
             <p className="text-sm text-aegis-muted mb-5 leading-relaxed">
-              Choose an address the AI will use, set a hard daily spend limit in USDC,
-              and deposit funds. The agent can never exceed the limit or spend while frozen.
+              Choose an address the AI will use, set a hard daily spend limit and a
+              per-transaction cap in USDC, and deposit funds. No single transaction can
+              exceed the per-transaction cap, the agent can never exceed the daily limit,
+              and it cannot spend while frozen.
             </p>
 
             <button
@@ -218,6 +222,10 @@ export function Home() {
                         )}%`,
                       }}
                     />
+                  </div>
+                  <div className="flex justify-between text-xs text-aegis-muted mt-2">
+                    <span>Per-transaction cap</span>
+                    <span className="font-mono">${formatUsdc(agentData.perTxLimit)}</span>
                   </div>
                 </div>
               )}
@@ -411,7 +419,7 @@ export function Home() {
                 {modal === 'deposit' && 'Deposit USDC'}
                 {modal === 'withdraw' && 'Withdraw USDC'}
                 {modal === 'intent' && 'Create Intent'}
-                {modal === 'limit' && 'Set Daily Limit'}
+                {modal === 'limit' && 'Set Limits'}
               </h3>
               <button onClick={() => setModal('none')} className="p-1">
                 <X className="w-5 h-5 text-aegis-muted" />
@@ -470,9 +478,32 @@ export function Home() {
                     className="w-full bg-aegis-bg border border-aegis-border rounded-xl px-3 py-3 text-sm outline-none focus:border-aegis-accent"
                   />
                 </div>
+                <div>
+                  <label className="text-xs text-aegis-muted mb-1.5 block">
+                    Per-transaction cap (USDC)
+                  </label>
+                  <input
+                    type="number"
+                    value={perTxLimit}
+                    onChange={(e) => setPerTxLimitInput(e.target.value)}
+                    placeholder="25"
+                    className="w-full bg-aegis-bg border border-aegis-border rounded-xl px-3 py-3 text-sm outline-none focus:border-aegis-accent"
+                  />
+                  <p className="text-[11px] text-aegis-muted mt-1.5">
+                    No single transaction can exceed this cap, even when the daily limit
+                    still has room. Must be above 0 — set it equal to the daily limit if
+                    one transaction may use the whole day.
+                  </p>
+                </div>
                 <button
-                  disabled={isPending || !agentAddress || !dailyLimit}
-                  onClick={() => createAgent(agentAddress as `0x${string}`, Number(dailyLimit))}
+                  disabled={isPending || !agentAddress || !dailyLimit || !perTxLimit}
+                  onClick={() =>
+                    createAgent(
+                      agentAddress as `0x${string}`,
+                      Number(dailyLimit),
+                      Number(perTxLimit)
+                    )
+                  }
                   className="w-full py-3.5 rounded-xl bg-aegis-accent text-black font-semibold text-sm disabled:opacity-50"
                 >
                   {isPending ? 'Creating…' : 'Create Agent'}
@@ -625,7 +656,26 @@ export function Home() {
                   onClick={() => setDailyLimit(Number(dailyLimit))}
                   className="w-full py-3.5 rounded-xl bg-aegis-accent text-black font-semibold text-sm disabled:opacity-50"
                 >
-                  {isPending ? 'Updating…' : 'Update Limit'}
+                  {isPending ? 'Updating…' : 'Update Daily Limit'}
+                </button>
+                <div>
+                  <label className="text-xs text-aegis-muted mb-1.5 block">
+                    New per-transaction cap (USDC)
+                  </label>
+                  <input
+                    type="number"
+                    value={perTxLimit}
+                    onChange={(e) => setPerTxLimitInput(e.target.value)}
+                    placeholder="25"
+                    className="w-full bg-aegis-bg border border-aegis-border rounded-xl px-3 py-3 text-sm outline-none focus:border-aegis-accent"
+                  />
+                </div>
+                <button
+                  disabled={isPending || !perTxLimit}
+                  onClick={() => setPerTxLimit(Number(perTxLimit))}
+                  className="w-full py-3.5 rounded-xl bg-aegis-accent text-black font-semibold text-sm disabled:opacity-50"
+                >
+                  {isPending ? 'Updating…' : 'Update Per-Tx Cap'}
                 </button>
               </div>
             )}

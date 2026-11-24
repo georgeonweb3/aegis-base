@@ -1,17 +1,17 @@
 // Aegis contract ABI + addresses
 
-// Deployed on Base Sepolia (2026-11-03, post-fix redeploy; USDC() verified
+// Deployed on Base Sepolia (2026-11-24, perTxLimit redeploy; USDC() verified
 // on-chain as the Base Sepolia USDC below). Mainnet entry is added to
 // AEGIS_ADDRESSES when the mainnet deployment happens.
 export const AEGIS_ADDRESSES: Partial<Record<number, `0x${string}`>> = {
-  84532: '0x46E971401a17b91bc2da0bdb120C63a5aE15E826', // Base Sepolia
+  84532: '0x5E16950ae0244908b1310b177966F479198B4fE7', // Base Sepolia (perTxLimit redeploy 2026-11-24; supersedes 0x46E9…E826)
   // 8453: '0x…' // Base mainnet — not deployed yet
 }
 
 // Block each deployment went live at — the activity/intents feed scans
 // event logs from here instead of from genesis.
 export const AEGIS_DEPLOY_BLOCKS: Partial<Record<number, bigint>> = {
-  84532: 53973259n,
+  84532: 63152505n,
 }
 
 export function aegisAddressForChain(chainId: number | undefined): `0x${string}` {
@@ -113,6 +113,14 @@ export const AEGIS_ABI = [
       { name: 'dailyLimit', type: 'uint256', indexed: false },
     ],
   },
+  {
+    type: 'event',
+    name: 'PerTxLimitUpdated',
+    inputs: [
+      { name: 'agentWallet', type: 'address', indexed: true },
+      { name: 'perTxLimit', type: 'uint256', indexed: false },
+    ],
+  },
 
   // Read
   {
@@ -140,6 +148,7 @@ export const AEGIS_ABI = [
           { name: 'totalDeposited', type: 'uint256' },
           { name: 'totalSpent', type: 'uint256' },
           { name: 'totalWithdrawn', type: 'uint256' },
+          { name: 'perTxLimit', type: 'uint256' },
         ],
       },
     ],
@@ -188,6 +197,7 @@ export const AEGIS_ABI = [
     inputs: [
       { name: 'agentWallet', type: 'address' },
       { name: 'dailyLimit', type: 'uint256' },
+      { name: 'perTxLimit', type: 'uint256' },
     ],
     outputs: [],
   },
@@ -198,6 +208,16 @@ export const AEGIS_ABI = [
     inputs: [
       { name: 'agentWallet', type: 'address' },
       { name: 'newDailyLimit', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'setPerTxLimit',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'agentWallet', type: 'address' },
+      { name: 'newPerTxLimit', type: 'uint256' },
     ],
     outputs: [],
   },

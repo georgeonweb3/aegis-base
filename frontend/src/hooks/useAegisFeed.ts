@@ -84,7 +84,7 @@ export function useAegisFeed(myAgent: `0x${string}` | undefined, hasAgent: boole
       }
 
       const byAgent = { agentWallet: myAgent }
-      const [spent, deposited, withdrawn, frozen, unfrozen, created, limits, intentCreated] =
+      const [spent, deposited, withdrawn, frozen, unfrozen, created, limits, perTxLimits, intentCreated] =
         await Promise.all([
           getLogsChunked('Spent', byAgent),
           getLogsChunked('Deposited', byAgent),
@@ -93,6 +93,7 @@ export function useAegisFeed(myAgent: `0x${string}` | undefined, hasAgent: boole
           getLogsChunked('Unfrozen', byAgent),
           getLogsChunked('AgentCreated', byAgent),
           getLogsChunked('LimitsUpdated', byAgent),
+          getLogsChunked('PerTxLimitUpdated', byAgent),
           getLogsChunked('IntentCreated', { agent: myAgent }),
         ])
 
@@ -128,6 +129,8 @@ export function useAegisFeed(myAgent: `0x${string}` | undefined, hasAgent: boole
       for (const l of unfrozen) push(l, 'unfrozen', 'Agent unfrozen')
       for (const l of limits)
         push(l, 'limit', `Daily limit changed to ${usd(l.args.dailyLimit)}`)
+      for (const l of perTxLimits)
+        push(l, 'limit', `Per-transaction cap changed to ${usd(l.args.perTxLimit)}`)
       for (const l of intentCreated)
         push(l, 'intent', `New intent created: up to ${usd(l.args.maxAmount)}`)
 

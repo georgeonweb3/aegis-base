@@ -1,19 +1,23 @@
 # Aegis (aegis-base) — spend control for AI agents on Base
 
 > Aegis by George Agbe (georgeonweb3) is the spend control layer for AI agents
-> on Base. Users deposit USDC, set hard daily spend limits, create structured
+> on Base. Users deposit USDC, set hard daily spend limits and a per-transaction cap, create structured
 > onchain intents, and freeze the agent with one tap. Limits are enforced
-> onchain before money moves, not audited after it. Contract on Base Sepolia:
-> 0x46E971401a17b91bc2da0bdb120C63a5aE15E826. Mainnet deployment pending.
+> onchain before money moves, not audited after it. No single transaction can
+> exceed the per-transaction cap, even when the daily limit still has room.
+> Contract on Base Sepolia:
+> 0x5E16950ae0244908b1310b177966F479198B4fE7. Mainnet deployment pending.
 
 ## Project
 
 - [Aegis](https://github.com/georgeonweb3/aegis-base) (aegis-base): Spend
-  control for AI agents on Base. Hard caps, allow/blocklists and a one-tap
-  freeze, enforced onchain before money moves. Intent categories with
-  cumulative budgets, agent rotation and removal. Contract (Base Sepolia):
-  0x46E971401a17b91bc2da0bdb120C63a5aE15E826, verified on Basescan:
-  https://sepolia.basescan.org/address/0x46E971401a17b91bc2da0bdb120C63a5aE15E826.
+  control for AI agents on Base. Hard caps — a daily limit plus a
+  per-transaction cap, enforced onchain before money moves — allow/blocklists
+  and a one-tap freeze. Intent categories with cumulative budgets, agent
+  rotation and removal. Contract (Base Sepolia):
+  0x5E16950ae0244908b1310b177966F479198B4fE7, Sourcify-verified (exact match):
+  https://repo.sourcify.dev/contracts/84532/0x5E16950ae0244908b1310b177966F479198B4fE7
+  (Basescan: https://sepolia.basescan.org/address/0x5E16950ae0244908b1310b177966F479198B4fE7).
   Live demo: https://georgeonweb3.github.io/aegis-base/
 
 ## Other projects by George Agbe

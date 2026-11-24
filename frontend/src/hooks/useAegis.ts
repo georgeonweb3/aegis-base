@@ -61,13 +61,18 @@ export function useAegis() {
 
   // ---- Actions ----
 
-  const createAgent = (agentWallet: `0x${string}`, dailyLimitUsd: number) => {
+  const createAgent = (
+    agentWallet: `0x${string}`,
+    dailyLimitUsd: number,
+    perTxLimitUsd: number
+  ) => {
     const limit = parseUnits(dailyLimitUsd.toString(), 6)
+    const perTx = parseUnits(perTxLimitUsd.toString(), 6)
     writeContract({
       address: aegisAddress,
       abi: AEGIS_ABI,
       functionName: 'createAgent',
-      args: [agentWallet, limit],
+      args: [agentWallet, limit, perTx],
     })
   }
 
@@ -79,6 +84,17 @@ export function useAegis() {
       abi: AEGIS_ABI,
       functionName: 'setDailyLimit',
       args: [myAgent as `0x${string}`, limit],
+    })
+  }
+
+  const setPerTxLimit = (perTxLimitUsd: number) => {
+    if (!myAgent) return
+    const perTx = parseUnits(perTxLimitUsd.toString(), 6)
+    writeContract({
+      address: aegisAddress,
+      abi: AEGIS_ABI,
+      functionName: 'setPerTxLimit',
+      args: [myAgent as `0x${string}`, perTx],
     })
   }
 
@@ -177,6 +193,7 @@ export function useAegis() {
     refresh,
     createAgent,
     setDailyLimit,
+    setPerTxLimit,
     freeze,
     unfreeze,
     approveUsdc,

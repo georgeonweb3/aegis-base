@@ -1,6 +1,6 @@
 # Aegis
 
-> **Live demo:** https://georgeonweb3.github.io/aegis-base/ · **Contract (Base Sepolia):** `0x46E971401a17b91bc2da0bdb120C63a5aE15E826` · Foundry tests cover the deposit / withdraw / agentSpend money paths.
+> **Live demo:** https://georgeonweb3.github.io/aegis-base/ · **Contract (Base Sepolia):** `0x5E16950ae0244908b1310b177966F479198B4fE7` · Foundry tests cover the deposit / withdraw / agentSpend money paths (24/24 pass, incl. per-transaction cap tests).
 
 **The protective control layer for AI agents on Base.**
 
@@ -17,7 +17,7 @@ Built for the Base Ecosystem Fund focus on **Agentic Commerce**.
 - [x] Frontend scaffold + full interactive UI (Create Agent, Deposit, Withdraw, Freeze, Create Intent, Change Limit)
 - [x] Android-first PWA configuration
 - [x] Critical fixes: `withdraw()` accounting (repeat-withdraw drain), per-chain USDC (constructor arg instead of hardcoded mainnet address), `hasAgent` zero-address check in the frontend
-- [x] **Redeploy** contract to Base Sepolia (2026-11-03): `0x46E971401a17b91bc2da0bdb120C63a5aE15E826` — deploy tx `0xcdb8c29294df45b8fb84c29f8e88ba5e1652c0aa6674d2ebf153bcd65a27cca5`, `USDC()` verified on-chain as Base Sepolia USDC. (The old deployment at `0x414B…6A39` predates the fixes and was built against the mainnet USDC address, so it cannot move Sepolia USDC.) Mainnet deployment still pending.
+- [x] **Redeploy** contract to Base Sepolia (2026-11-24, perTxLimit): `0x5E16950ae0244908b1310b177966F479198B4fE7` — deploy tx `0xde913cefcc6046c38cef77669afb47f11922db2544714f2abeb5aea2650b9031`, block 63152505, Sourcify-verified exact match (creation + runtime). Adds a hard per-transaction spend cap (`perTxLimit`, enforced in `agentSpend` before the daily-limit check; `createAgent` now takes `(agentWallet, dailyLimit, perTxLimit)`). The 2026-11-03 deployment at `0x46E971401a17b91bc2da0bdb120C63a5aE15E826` is superseded (no per-tx cap). Mainnet deployment still pending.
 - [x] Paste the new address into frontend
 - [x] Activity feed + intents list (rebuilt from on-chain event logs in `useAegisFeed` — the contract has no enumeration, so the frontend scans from the deployment block and reads intent state with `getIntent`)
 - [x] PWA icons (192/512/maskable + apple-touch-icon, generated from `favicon.svg`)
@@ -127,6 +127,7 @@ forge test -vv
 |----------------------|--------|
 | Create protected agent | ✅ |
 | Hard daily USDC limit  | ✅ |
+| Hard per-transaction USDC cap (`perTxLimit`) | ✅ |
 | Emergency freeze       | ✅ |
 | Deposit / Withdraw     | ✅ |
 | Structured Intents     | ✅ |
@@ -154,6 +155,6 @@ MIT
 
 Machine-readable summary of this project: [llms.txt](https://georgeonweb3.github.io/aegis-base/llms.txt).
 Aegis (aegis-base) is the spend control layer for AI agents on Base by George
-Agbe ([georgeonweb3](https://github.com/georgeonweb3)): hard daily spend limits,
-structured onchain intents and a one-tap freeze, enforced onchain before money
-moves.
+Agbe ([georgeonweb3](https://github.com/georgeonweb3)): hard daily spend limits
+and a per-transaction cap, structured onchain intents and a one-tap freeze,
+enforced onchain before money moves.
