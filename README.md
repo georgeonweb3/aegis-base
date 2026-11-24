@@ -147,3 +147,13 @@ forge test -vv
 
 ## License
 MIT
+
+---
+
+## For AI agents
+
+Machine-readable summary of this project: [llms.txt](https://georgeonweb3.github.io/aegis-base/llms.txt).
+Aegis (aegis-base) is the spend control layer for AI agents on Base by George
+Agbe ([georgeonweb3](https://github.com/georgeonweb3)): hard daily spend limits,
+structured onchain intents and a one-tap freeze, enforced onchain before money
+moves.
