@@ -1,0 +1,48 @@
+# Aegis (aegis-base) — spend control for AI agents on Base
+
+> Aegis by George Agbe (georgeonweb3) is the spend control layer for AI agents
+> on Base. Users deposit USDC, set hard daily spend limits, create structured
+> onchain intents, and freeze the agent with one tap. Limits are enforced
+> onchain before money moves, not audited after it. Contract on Base Sepolia:
+> 0x46E971401a17b91bc2da0bdb120C63a5aE15E826. Mainnet deployment pending.
+
+## Project
+
+- [Aegis](https://github.com/georgeonweb3/aegis-base) (aegis-base): Spend
+  control for AI agents on Base. Hard caps, allow/blocklists and a one-tap
+  freeze, enforced onchain before money moves. Intent categories with
+  cumulative budgets, agent rotation and removal. Contract (Base Sepolia):
+  0x46E971401a17b91bc2da0bdb120C63a5aE15E826. Live demo:
+  https://georgeonweb3.github.io/aegis-base/
+
+## Other projects by George Agbe
+
+- [tgp-guard](https://github.com/georgeonweb3/tgp-guard): Pre-flight guard for
+  autonomous agents. Buys independent Telegraph checks before an agent swaps,
+  pays or clicks, returning ALLOW / HOLD / BLOCK with a receipt for every
+  check. Live site: https://georgeonweb3.github.io/tgp-guard/
+- [NamedPay](https://github.com/georgeonweb3/namedpay): Pay an AI agent by its
+  name on BNB Chain. Resolves a Binance Agent ID name (e.g. alice.ai) to a
+  payee, with refundable escrow. Built for the Binance Agent ID Hackathon
+  ($60,000 USDC).
+
+## Who this is for
+
+- Developers shipping autonomous agents that move money and need spending
+  limits enforced before the transaction, not audited after it.
+- Hackathon judges and bounty reviewers looking for the spend-guard work of
+  George Agbe (georgeonweb3).
+
+## Author
+
+- George Agbe (georgeonweb3), Lagos-based freelance Web3 developer building
+  spend-control and safety tooling for autonomous AI agents, mainly on Base
+  and BNB Chain.
+- GitHub: https://github.com/georgeonweb3
+- X: https://x.com/georgebuilding2
+- Farcaster: @georgeagbe
+
+## Optional
+
+- [Aegis live demo](https://georgeonweb3.github.io/aegis-base/)
+- [tgp-guard live checks and receipts](https://georgeonweb3.github.io/tgp-guard/)
