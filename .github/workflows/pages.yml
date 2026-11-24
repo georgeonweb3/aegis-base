@@ -39,5 +39,8 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
+      # GitHub's artifact-metadata API lags the upload; deploy-pages fails with "Found 0 artifact(s)" when it queries too soon (hit 3x on run 45486176628).
+      - name: Wait for artifact metadata to propagate
+        run: sleep 60
       - id: deployment
         uses: actions/deploy-pages@v4
